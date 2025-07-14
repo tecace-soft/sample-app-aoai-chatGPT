@@ -36,6 +36,8 @@ from backend.utils import (
     format_pf_non_streaming_response,
 )
 
+from backend.monitoring_service import send_monitoring_data
+
 bp = Blueprint("routes", __name__, static_folder="static", template_folder="static")
 
 cosmos_db_ready = asyncio.Event()
@@ -453,6 +455,14 @@ async def complete_chat_request(request_body, request_headers):
     else:
         response, apim_request_id = await send_chat_request(request_body, request_headers)
         history_metadata = request_body.get("history_metadata", {})
+
+        conversation_id = history_metadata.get("conversation_id")
+        asyncio.create_task(send_monitoring_data(
+            response, 
+            request_body.get("messages", []),
+            conversation_id
+        ))
+
         non_streaming_response = format_non_streaming_response(response, history_metadata, apim_request_id)
 
         if app_settings.azure_openai.function_call_azure_functions_enabled:
@@ -463,6 +473,15 @@ async def complete_chat_request(request_body, request_headers):
 
                 response, apim_request_id = await send_chat_request(request_body, request_headers)
                 history_metadata = request_body.get("history_metadata", {})
+                
+                # Add monitoring for function call response as well
+                conversation_id = history_metadata.get("conversation_id")
+                asyncio.create_task(send_monitoring_data(
+                    response, 
+                    request_body.get("messages", []),
+                    conversation_id
+                ))
+                
                 non_streaming_response = format_non_streaming_response(response, history_metadata, apim_request_id)
 
     return non_streaming_response
@@ -534,8 +553,12 @@ async def process_function_call_stream(completionChunk, function_call_stream_sta
 async def stream_chat_request(request_body, request_headers):
     response, apim_request_id = await send_chat_request(request_body, request_headers)
     history_metadata = request_body.get("history_metadata", {})
+
+    collected_response_text = ""
+    token_usage = None
     
     async def generate(apim_request_id, history_metadata):
+        nonlocal collected_response_text, token_usage
         if app_settings.azure_openai.function_call_azure_functions_enabled:
             # Maintain state during function call streaming
             function_call_stream_state = AzureOpenaiFunctionCallStreamState()
@@ -552,12 +575,72 @@ async def stream_chat_request(request_body, request_headers):
                 if stream_state == "COMPLETED":
                     request_body["messages"].extend(function_call_stream_state.function_messages)
                     function_response, apim_request_id = await send_chat_request(request_body, request_headers)
+                    
+                    # Collect function call response for monitoring
+                    function_collected_text = ""
+                    function_token_usage = None
+                    
                     async for functionCompletionChunk in function_response:
+                        # Collect function response data
+                        if hasattr(functionCompletionChunk, 'choices') and functionCompletionChunk.choices:
+                            delta = functionCompletionChunk.choices[0].delta
+                            if hasattr(delta, 'content') and delta.content:
+                                function_collected_text += delta.content
+                        
+                        if hasattr(functionCompletionChunk, 'usage') and functionCompletionChunk.usage:
+                            function_token_usage = functionCompletionChunk.usage
+                        
                         yield format_stream_response(functionCompletionChunk, history_metadata, apim_request_id)
+                    
+                    # Send monitoring data for function call response
+                    if function_collected_text:
+                        conversation_id = history_metadata.get("conversation_id")
+                        function_mock_response = type('MockResponse', (), {
+                            'choices': [type('Choice', (), {
+                                'message': type('Message', (), {
+                                    'content': function_collected_text
+                                })()
+                            })()],
+                            'usage': function_token_usage
+                        })()
+                        
+                        asyncio.create_task(send_monitoring_data(
+                            function_mock_response,
+                            request_body.get("messages", []),
+                            conversation_id
+                        ))
                 
         else:
             async for completionChunk in response:
+
+                if hasattr(completionChunk, 'choices') and completionChunk.choices:
+                    delta = completionChunk.choices[0].delta
+                    if hasattr(delta, 'content') and delta.content:
+                        collected_response_text += delta.content
+                
+                # Check for usage data in the final chunk
+                if hasattr(completionChunk, 'usage') and completionChunk.usage:
+                    token_usage = completionChunk.usage
+
                 yield format_stream_response(completionChunk, history_metadata, apim_request_id)
+
+        if collected_response_text:  # Only if we have response data
+            conversation_id = history_metadata.get("conversation_id")
+            # Create a mock response object for monitoring
+            mock_response = type('MockResponse', (), {
+                'choices': [type('Choice', (), {
+                    'message': type('Message', (), {
+                        'content': collected_response_text
+                    })()
+                })()],
+                'usage': token_usage
+            })()
+            
+            asyncio.create_task(send_monitoring_data(
+                mock_response,
+                request_body.get("messages", []),
+                conversation_id
+            ))
 
     return generate(apim_request_id=apim_request_id, history_metadata=history_metadata)
 
