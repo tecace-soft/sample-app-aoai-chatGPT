@@ -1,8 +1,8 @@
 import { useContext, useState } from 'react'
 import { FontIcon, Stack, TextField } from '@fluentui/react'
-import { SendRegular } from '@fluentui/react-icons'
+import { ArrowUpFilled } from '@fluentui/react-icons'
 
-import Send from '../../assets/Send.svg'
+
 
 import styles from './QuestionInput.module.css'
 import { ChatMessage } from '../../api'
@@ -15,9 +15,10 @@ interface Props {
   placeholder?: string
   clearOnSend?: boolean
   conversationId?: string
+  onInputChange?: (hasText: boolean) => void
 }
 
-export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend, conversationId }: Props) => {
+export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend, conversationId, onInputChange }: Props) => {
   const [question, setQuestion] = useState<string>('')
   const [base64Image, setBase64Image] = useState<string | null>(null);
 
@@ -69,7 +70,12 @@ export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend, conv
   }
 
   const onQuestionChange = (_ev: React.FormEvent<HTMLInputElement | HTMLTextAreaElement>, newValue?: string) => {
-    setQuestion(newValue || '')
+    const newQuestion = newValue || ''
+    setQuestion(newQuestion)
+    // Notify parent component about text changes
+    if (onInputChange) {
+      onInputChange(newQuestion.trim().length > 0)
+    }
   }
 
   const sendQuestionDisabled = disabled || !question.trim()
@@ -85,6 +91,19 @@ export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend, conv
         value={question}
         onChange={onQuestionChange}
         onKeyDown={onEnterPress}
+        styles={{
+          field: { 
+            backgroundColor: 'transparent',
+            border: 'none'
+          },
+          wrapper: { 
+            backgroundColor: 'transparent' 
+          },
+          fieldGroup: { 
+            backgroundColor: 'transparent',
+            border: 'none'
+          }
+        }}
       />
       {!OYD_ENABLED && (
         <div className={styles.fileInputContainer}>
@@ -105,16 +124,16 @@ export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend, conv
         </div>)}
       {base64Image && <img className={styles.uploadedImage} src={base64Image} alt="Uploaded Preview" />}
       <div
-        className={styles.questionInputSendButtonContainer}
+        className={`${styles.questionInputSendButtonContainer} ${sendQuestionDisabled ? styles.sendButtonContainerDisabled : styles.sendButtonContainerEnabled}`}
         role="button"
         tabIndex={0}
         aria-label="Ask question button"
         onClick={sendQuestion}
         onKeyDown={e => (e.key === 'Enter' || e.key === ' ' ? sendQuestion() : null)}>
         {sendQuestionDisabled ? (
-          <SendRegular className={styles.questionInputSendButtonDisabled} />
+          <ArrowUpFilled className={styles.questionInputSendButtonDisabled} />
         ) : (
-          <img src={Send} className={styles.questionInputSendButton} alt="Send Button" />
+          <ArrowUpFilled className={styles.questionInputSendButton} />
         )}
       </div>
       <div className={styles.questionInputBottomBorder} />

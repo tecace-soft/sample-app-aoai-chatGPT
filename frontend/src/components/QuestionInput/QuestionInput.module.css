@@ -1,18 +1,20 @@
 .questionInputContainer {
   height: 120px;
   position: absolute;
-  left: 6.5%;
+  left: 0%;
   right: 0%;
   top: 0%;
   bottom: 0%;
-  background: #ffffff;
-  box-shadow:
+  background: #f3f4f6;
+  /* box-shadow:
     0px 8px 16px rgba(0, 0, 0, 0.14),
-    0px 0px 2px rgba(0, 0, 0, 0.12);
-  border-radius: 8px;
+    0px 0px 2px rgba(0, 0, 0, 0.12); */
+  border-radius: 30px;
+  border: 1px solid #eceef0;
 }
 
 .questionInputTextArea {
+  background: #f3f4f6;
   width: 100%;
   line-height: 40px;
   margin-top: 10px;
@@ -21,26 +23,68 @@
   margin-right: 12px;
 }
 
+/* Target all possible TextField elements */
+.questionInputTextArea :global(.ms-TextField-field),
+.questionInputTextArea :global(.ms-TextField-wrapper),
+.questionInputTextArea :global(.ms-TextField-fieldGroup),
+.questionInputTextArea :global(textarea),
+.questionInputTextArea :global(input) {
+  background-color: transparent !important;
+  background: transparent !important;
+  border: none !important;
+}
+
+/* More specific targeting for Fluent UI */
+.questionInputTextArea :global(*) {
+  background-color: transparent !important;
+}
+
 .questionInputSendButtonContainer {
   position: absolute;
-  right: 24px;
-  bottom: 20px;
+  right: 20px;
+  bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 .questionInputSendButton {
   width: 24px;
-  height: 23px;
+  height: 24px;
+  color: white;
+  background: none;
+  font-weight: 900;
+  stroke-width: 2px;
+  filter: drop-shadow(0 0 1px white);
 }
 
 .questionInputSendButtonDisabled {
-  /* opacity: 0.4; */
   width: 24px;
-  height: 23px;
+  height: 24px;
+  color: white;
   background: none;
-  color: #424242;
+  font-weight: 900;
+  stroke-width: 2px;
+  filter: drop-shadow(0 0 1px white);
 }
 
-.questionInputBottomBorder {
+/* Styling for enabled state (blue circle) */
+.sendButtonContainerEnabled {
+  background-color: #5b6cfe;
+}
+
+/* Styling for disabled state (gray circle) */
+.sendButtonContainerDisabled {
+  background-color: #a19f9d;
+  cursor: not-allowed;
+}
+
+/* .questionInputBottomBorder {
   position: absolute;
   width: 100%;
   height: 4px;
@@ -49,7 +93,7 @@
   background: radial-gradient(106.04% 106.06% at 100.1% 90.19%, #0f6cbd 33.63%, #8dddd8 100%);
   border-bottom-left-radius: 8px;
   border-bottom-right-radius: 8px;
-}
+} */
 
 .questionInputOptionsButton {
   cursor: pointer;
