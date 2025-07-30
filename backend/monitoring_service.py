@@ -23,7 +23,8 @@ class MonitoringService:
         self.endpoint = "https://monitor.assistace.tecace.com/api/evaluate/async/"
         self.headers = {
             "Accept": "application/json",
-            "X-API-Key": "ACCEEE32-332A-4538-926D-5DB03E46DB14",
+            # "X-API-Key": "ACCEEE32-332A-4538-926D-5DB03E46DB14",
+            "X-API-Key": "da47fa19-588c-4631-acf9-8e5ec0f511c8",
             "Content-Type": "application/json"
         }
         self.timeout = 10.0  # 10 second timeout

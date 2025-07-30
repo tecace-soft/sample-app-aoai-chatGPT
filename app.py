@@ -48,6 +48,61 @@ def create_app():
     app.register_blueprint(bp)
     app.config["TEMPLATES_AUTO_RELOAD"] = True
     
+    # Teams-aware middleware for iframe compatibility
+    @app.after_request
+    async def add_teams_compatible_headers(response):
+        # Get request information
+        origin = request.headers.get('origin', '')
+        user_agent = request.headers.get('user-agent', '').lower()
+        referer = request.headers.get('referer', '')
+        
+        # Check if request is from Teams context
+        is_teams_request = (
+            'teams' in user_agent or 
+            'msteams' in user_agent or
+            'teams.microsoft.com' in origin or
+            'teams.microsoft.com' in referer or
+            'teams.live.com' in origin or
+            origin.endswith('.microsoft.com') or
+            origin.endswith('.microsoftonline.com') or
+            origin.endswith('.office.com') or
+            origin.endswith('.sharepoint.com')
+        )
+        
+        # Teams-compatible headers
+        if is_teams_request:
+            # Allow Teams to embed the app
+            response.headers['X-Frame-Options'] = 'ALLOWALL'
+            # Modern CSP approach for Teams
+            response.headers['Content-Security-Policy'] = (
+                "frame-ancestors 'self' "
+                "*.microsoft.com *.microsoftonline.com *.office.com *.sharepoint.com "
+                "*.teams.microsoft.com teams.microsoft.com teams.live.com; "
+                "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: "
+                "*.microsoft.com *.microsoftonline.com *.office.com *.teams.microsoft.com"
+            )
+            # Teams-specific headers
+            response.headers['X-Content-Type-Options'] = 'nosniff'
+            response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+        else:
+            # Standard security headers for non-Teams requests
+            response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+            response.headers['Content-Security-Policy'] = "frame-ancestors 'self'"
+            response.headers['X-Content-Type-Options'] = 'nosniff'
+            response.headers['X-XSS-Protection'] = '1; mode=block'
+            response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+        
+        # Always allow CORS for Teams
+        if is_teams_request:
+            response.headers['Access-Control-Allow-Origin'] = origin
+            response.headers['Access-Control-Allow-Credentials'] = 'true'
+            response.headers['Access-Control-Allow-Headers'] = 'Origin, X-Requested-With, Content-Type, Accept, Authorization'
+            response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+        
+        return response
+    
+
+    
     @app.before_serving
     async def init():
         try:
@@ -1141,6 +1196,9 @@ async def generate_title(conversation_messages) -> str:
     except Exception as e:
         logging.exception("Exception while generating title", e)
         return messages[-2]["content"]
+
+
+
 
 
 app = create_app()
